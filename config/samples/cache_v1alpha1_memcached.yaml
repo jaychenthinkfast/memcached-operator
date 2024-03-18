@@ -1,4 +1,4 @@
-apiVersion: cache.chenjie.info/v1
+apiVersion: cache.chenjie.info/v1alpha1
 kind: Memcached
 metadata:
   labels:
