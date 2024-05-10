@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -98,15 +99,15 @@ func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// Ensure the deployment size is the same as the spec
 	size := memcached.Spec.Size
-	if *found.Spec.Replicas != size {
-		found.Spec.Replicas = &size
-		err = r.Update(ctx, found)
+	newFound := found.DeepCopy()
+	if *newFound.Spec.Replicas != size {
+		newFound.Spec.Replicas = &size
+		err = r.Patch(ctx, newFound, client.MergeFrom(found))
 		if err != nil {
 			log.Error(err, "Failed to update Deployment", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
 			return ctrl.Result{}, err
 		}
-		// Spec updated - return and requeue
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	// Update the Memcached status with the pod names
@@ -127,7 +128,6 @@ func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		newMemcached := memcached.DeepCopy()
 		newMemcached.Status.Nodes = podNames
 		err := r.Status().Patch(ctx, newMemcached, client.MergeFrom(memcached))
-
 		if err != nil {
 			log.Error(err, "Failed to update Memcached status")
 			return ctrl.Result{}, err
